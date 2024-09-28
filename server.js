@@ -81,6 +81,32 @@ app.get('/payments', async (req, res) => {
     }
 });
 
+
+/**
+ * @swagger
+ * /companies:
+ *   get:
+ *     summary: Get a list of companies
+ *     description: Retrieve a list of companies with their names and cities, ordered by the city name.
+ *     responses:
+ *       200:
+ *         description: A list of companies
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   COMPANY_NAME:
+ *                     type: string
+ *                     description: Name of the company
+ *                   COMPANY_CITY:
+ *                     type: string
+ *                     description: City where the company is located
+ *       500:
+ *         description: Database error
+ */
 app.get('/companies', async (req, res) => {
     try {
         const connection = await pool.getConnection();
@@ -96,6 +122,38 @@ app.get('/companies', async (req, res) => {
     }
 });
 
+
+/**
+ * @swagger
+ * /custnumber:
+ *   get:
+ *     summary: Retrieve customer count per city
+ *     description: Returns the number of customers in each city, ordered by the highest number of customers.
+ *     responses:
+ *       200:
+ *         description: A list of cities and the corresponding number of customers
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   CUST_CITY:
+ *                     type: string
+ *                     description: The city of the customer.
+ *                     example: New York
+ *                   CUST_COUNTRY:
+ *                     type: string
+ *                     description: The country of the customer.
+ *                     example: USA
+ *                   NUMBER_OF_CUSTOMERS:
+ *                     type: integer
+ *                     description: The number of customers in the city.
+ *                     example: 100
+ *       500:
+ *         description: Database error
+ */
 app.get('/custnumber', async (req, res) => {
     try {
         const connection = await pool.getConnection();
@@ -207,7 +265,7 @@ app.post('/foods', async (req, res) => {
  *     description: Remove a food entry from the database by ITEM_ID.
  *     parameters:
  *       - in: path
- *         name: itemId
+ *         name: id
  *         required: true
  *         description: ID of the food entry to delete
  *         type: integer
@@ -314,7 +372,7 @@ app.put('/foods/:id', async (req, res) => {
  * /foods/{id}:
  *   patch:
  *     summary: Partially update a food entry
- *     description: Update specific fields of a food entry in the database by ITEM_ID.
+ *     description: Update one or more fields in food entry in the database by ITEM_ID.
  *     parameters:
  *       - in: path
  *         name: id
@@ -323,7 +381,8 @@ app.put('/foods/:id', async (req, res) => {
  *         type: integer
  *       - in: body
  *         name: food
- *         description: Fields of the food entry to update
+ *         required: true
+ *         description: Food entry details to update
  *         schema:
  *           type: object
  *           properties:
@@ -337,7 +396,7 @@ app.put('/foods/:id', async (req, res) => {
  *       200:
  *         description: Food entry updated successfully
  *       400:
- *         description: Invalid item ID or no fields provided
+ *         description: Invalid item ID or missing fields
  *       404:
  *         description: Food entry not found
  *       500:
@@ -347,16 +406,21 @@ app.patch('/foods/:id', async (req, res) => {
     const itemId = req.params.id;
     const { ITEM_NAME, ITEM_UNIT, COMPANY_ID } = req.body;
 
-    // Validate the itemId
-    if (!itemId || isNaN(itemId) || (!ITEM_NAME && !ITEM_UNIT && !COMPANY_ID)) {
-        return res.status(400).send('Invalid item ID or no fields provided');
+    
+    if (!itemId || isNaN(itemId)) {
+        return res.status(400).send('Invalid item ID');
+    }
+
+    
+    if (!ITEM_NAME && !ITEM_UNIT && !COMPANY_ID) {
+        return res.status(400).send('No fields provided for update');
     }
 
     let connection;
     try {
         connection = await pool.getConnection();
 
-        // Build the SQL update query dynamically based on the provided fields
+        
         const updates = [];
         const values = [];
 
@@ -373,9 +437,15 @@ app.patch('/foods/:id', async (req, res) => {
             values.push(COMPANY_ID);
         }
 
-        // Append the item ID to the values array
+        
         values.push(itemId);
 
+        
+        if (updates.length === 0) {
+            return res.status(400).send('No valid fields provided for update');
+        }
+
+        
         const sql = `UPDATE foods SET ${updates.join(', ')} WHERE ITEM_ID = ?`;
         const result = await connection.query(sql, values);
 
@@ -388,7 +458,7 @@ app.patch('/foods/:id', async (req, res) => {
         console.error('Error executing query:', err);
         res.status(500).send('Database error');
     } finally {
-        if (connection) connection.release(); // Release the connection
+        if (connection) connection.release();
     }
 });
 
