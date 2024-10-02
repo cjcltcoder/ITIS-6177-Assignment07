@@ -2,6 +2,7 @@ const express = require('express');
 const app = express();
 const port = 3000;
 const cors = require('cors');
+const axios = require('axios');
 
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
@@ -35,6 +36,24 @@ const pool = mariadb.createPool({
     port: 3306,
     connectionLimit: 5
 });
+
+
+app.get('/say', async (req, res) => {
+    try {
+        const { keyword } = req.query;
+        
+        
+        const lambda = await axios.get(`https://v4dkdnmf2bfoljuyliekdisfum0sangt.lambda-url.us-east-2.on.aws/?keyword=${keyword}`);
+
+        const processedResponse = lambda.data;
+
+        res.status(200).json(processedResponse); 
+    } catch (error) {
+        console.error('Error forwarding request to Lambda Function: ', error);
+        res.status(500).json({ message: 'Error forwarding request to Lambda Function', error: error.message });
+    }
+});
+ 
 
 app.get('/foods', async (req, res) => {
     try {
